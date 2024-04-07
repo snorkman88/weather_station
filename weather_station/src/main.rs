@@ -1,7 +1,7 @@
 //! Run with
 //!
 //! ```not_rust
-//! cargo run -p example-hello-world
+//! cargo watch -x run
 //! ```
 
 use axum::http::{Response, StatusCode};
