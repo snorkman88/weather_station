@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Reading {
+pub struct Reading {
     value: f64,
 }
 
@@ -39,7 +39,7 @@ async fn root() -> Response<String> {
 
 async fn handle_new_reading(new_reading: axum::extract::Json<Reading>) {
     // "axum::extract::Json<Reading>" extractS the JSON content present int the body of the request
-    // and converts it into an instance of 'Reading'
+    // and converts it to an instance of 'Reading'
     println!("New reading received from node{}", new_reading.value);
     //TODO: send this to the DB actor in charge of saving in sqlite
 }
@@ -57,6 +57,9 @@ enum DbActorMessage {
         respond_to: oneshot::Sender<bool>,
         new_reading: Reading,
     },
+    GetLastReading {
+        respond_to: oneshot::Sender<Reading>,
+    },
 }
 
 impl DbActor {
@@ -69,9 +72,12 @@ impl DbActor {
                 respond_to,
                 new_reading,
             } => {
-                let result: bool = true; //TODO: write to DB and return a boolean if success
+                // TODO: pass new reading to DbActorHandle instance to write to DB
+                // and return a boolean indicating the status of the operation
+                let result: bool = true;
                 let _ = respond_to.send(result);
             }
+            DbActorMessage::GetLastReading { respond_to } => todo!(),
         }
     }
 }
@@ -98,7 +104,18 @@ impl DbActorHandle {
         }
     }
 
-    pub fn save_new_reading() {
+    pub async fn save_new_reading(self, new_reading: Reading) {
         println!("Passing new reading to DBActor");
+        let (send, recv) = oneshot::channel();
+        let msg = DbActorMessage::SaveNewReading {
+            respond_to: send,
+            new_reading: new_reading,
+        };
+
+        // Ignore send errors. If this send fails, so does the
+        // recv.await below. There's no reason to check the
+        // failure twice.
+        let _ = self.sender.send(msg).await;
+        recv.await.expect("Actor task has been killed");
     }
 }
