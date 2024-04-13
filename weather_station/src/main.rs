@@ -59,18 +59,15 @@ async fn handle_new_reading(
         .await;
 }
 
-async fn fetch_last_reading(Extension(db_actor_handle): Extension<DbActorHandle>) -> Response<String>{
+async fn fetch_last_reading(
+    Extension(db_actor_handle): Extension<DbActorHandle>,
+) -> Response<String> {
     //Use the DbActorHandle to request DbActor the last reading
     let last_reading = db_actor_handle.get_last_reading().await;
     let last_reading_as_json = serde_json::to_string(&last_reading);
     let response = match last_reading_as_json {
-        Ok(last_reading) => {
-            Response::new(last_reading)
-        },
-        Err(_) => {
-            Response::new("Error".to_string())
-        }
-        
+        Ok(last_reading) => Response::new(last_reading),
+        Err(_) => Response::new("Error".to_string()),
     };
     response
 }
