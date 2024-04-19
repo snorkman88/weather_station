@@ -4,10 +4,13 @@
 //! cargo watch -x run
 //! ```
 
+mod db_controller;
+use db_controller::Database;
+
 use std::string;
 
 use axum::http::{Response, StatusCode};
-use axum::Extension;
+use axum::{Error, Extension};
 use axum::{routing::get, routing::post, Router};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
@@ -19,7 +22,7 @@ pub struct Reading {
 
 #[tokio::main]
 async fn main() {
-    let db_actor_handle = DbActorHandle::new();
+    let db_actor_handle = DbActorHandle::new().await;
     // build our application with a route
     let app = Router::new()
         .route("/", get(root))
@@ -76,6 +79,7 @@ async fn fetch_last_reading(
 
 struct DbActor {
     inbox: mpsc::Receiver<DbActorMessage>,
+    db: Database
 }
 
 // Define the type of messages we can send to the actor
@@ -91,8 +95,19 @@ enum DbActorMessage {
 }
 
 impl DbActor {
-    fn new(inbox: mpsc::Receiver<DbActorMessage>) -> Self {
-        DbActor { inbox: inbox }
+    async fn new(inbox: mpsc::Receiver<DbActorMessage>) -> Self {
+        let db = Database::new("mysql://root:root@mariadb:3306").await;
+        match db {
+            Ok(database_connection) =>{
+                println!("Connection to DB was successful.");
+                DbActor { inbox: inbox, db:database_connection}
+            },
+            Err(_) => {
+                panic!("No connection to DB. Exiting.")
+            }
+            
+        }
+            
     }
     async fn process_db_actor_inbox_msg(&mut self, incoming_msg: DbActorMessage) {
         match incoming_msg {
@@ -128,9 +143,9 @@ pub struct DbActorHandle {
 }
 
 impl DbActorHandle {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         let (sender_to_db_actor, receiver_at_db_actor) = mpsc::channel(10);
-        let db_actor = DbActor::new(receiver_at_db_actor);
+        let db_actor = DbActor::new(receiver_at_db_actor).await;
         tokio::spawn(run_db_actor(db_actor)); //This will run the whole DbActor in the background
         Self {
             sender: sender_to_db_actor,
@@ -150,7 +165,7 @@ impl DbActorHandle {
         // failure twice.
         let _ = self.sender.send(msg).await;
         let result = recv.await.expect("Actor task has been killed");
-        println!("The DbActor returned {:?} to the handle", result)
+        println!("The DbActor returned {:?} to the DBhandle", result)
     }
 
     pub async fn get_last_reading(self) -> Reading {
