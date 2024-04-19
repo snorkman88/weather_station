@@ -22,4 +22,4 @@ impl Database {
         Ok(count)
     }
 }
-    // Other database-related functions can be defined here
+// Other database-related functions can be defined here

@@ -10,8 +10,8 @@ use db_controller::Database;
 use std::string;
 
 use axum::http::{Response, StatusCode};
-use axum::{Error, Extension};
 use axum::{routing::get, routing::post, Router};
+use axum::{Error, Extension};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
@@ -31,9 +31,7 @@ async fn main() {
         .layer(Extension(db_actor_handle.clone()));
 
     // run it
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
@@ -79,7 +77,7 @@ async fn fetch_last_reading(
 
 struct DbActor {
     inbox: mpsc::Receiver<DbActorMessage>,
-    db: Database
+    db: Database,
 }
 
 // Define the type of messages we can send to the actor
@@ -98,16 +96,17 @@ impl DbActor {
     async fn new(inbox: mpsc::Receiver<DbActorMessage>) -> Self {
         let db = Database::new("mysql://root:root@mariadb:3306").await;
         match db {
-            Ok(database_connection) =>{
+            Ok(database_connection) => {
                 println!("Connection to DB was successful.");
-                DbActor { inbox: inbox, db:database_connection}
-            },
+                DbActor {
+                    inbox: inbox,
+                    db: database_connection,
+                }
+            }
             Err(_) => {
                 panic!("No connection to DB. Exiting.")
             }
-            
         }
-            
     }
     async fn process_db_actor_inbox_msg(&mut self, incoming_msg: DbActorMessage) {
         match incoming_msg {
