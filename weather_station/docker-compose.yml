@@ -6,7 +6,7 @@ services:
     ports:
       - 3000:3000
     environment:
-      DATABASE_URL: mysql://root:root@db:3306/mysql
+      DATABASE_URL: mysql://root:root@mariadb:3306/mysql
       RUST_BACKTRACE: full
       #DNS_SERVER: 127.0.0.11:53
     restart: unless-stopped
